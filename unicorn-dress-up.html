@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>알리콘 무지개 빤짝이 옷 입히기</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: linear-gradient(135deg, #ffe4f0 0%, #e8f0ff 50%, #f0ffe8 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
+            overflow: hidden;
+        }
+        h1 {
+            margin: 12px 0 8px;
+            font-size: 1.7em;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff, #c77dff);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .game-wrap { display: flex; align-items: center; gap: 12px; }
+        .panel { display: flex; flex-direction: column; gap: 8px; }
+        .cloth-btn {
+            width: 74px; height: 74px; border-radius: 16px; cursor: pointer;
+            border: 3px solid rgba(255,255,255,0.9); background: white;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: 28px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            transition: transform .15s, box-shadow .15s, border-color .15s, background .15s;
+            position: relative;
+        }
+        .cloth-btn span { font-size: 10px; font-weight: bold; color: #888; margin-top: 2px; }
+        .cloth-btn:hover { transform: scale(1.1); box-shadow: 0 6px 18px rgba(0,0,0,0.2); }
+        .cloth-btn.on {
+            border-color: #ff69b4;
+            background: linear-gradient(135deg, #fff0f8, #f0f0ff);
+            box-shadow: 0 0 18px rgba(255,105,180,0.6);
+        }
+        .cloth-btn.on::after {
+            content: '✓'; position: absolute; top: 4px; right: 6px;
+            font-size: 12px; color: #ff69b4; font-weight: bold;
+        }
+        .stage {
+            position: relative; width: 400px; height: 470px;
+            background: radial-gradient(ellipse at 50% 38%, rgba(255,255,255,0.96), rgba(240,220,255,0.55));
+            border-radius: 30px;
+            box-shadow: 0 8px 32px rgba(180,100,220,0.2), inset 0 0 40px rgba(200,150,255,0.1);
+            border: 2px solid rgba(255,255,255,0.8);
+        }
+        #uc, #sc { position: absolute; top:0; left:0; border-radius:30px; }
+        #sc { pointer-events: none; }
+        .hint { font-size: 12px; color: #c080c0; margin-top: 7px; }
+        .bg-star {
+            position: fixed; pointer-events: none;
+            animation: floatS linear infinite; opacity: 0.3;
+        }
+        @keyframes floatS {
+            0%   { transform: translateY(100vh) rotate(0deg);   opacity:0; }
+            8%   { opacity: .3; }
+            92%  { opacity: .3; }
+            100% { transform: translateY(-60px) rotate(540deg); opacity:0; }
+        }
+    </style>
+</head>
+<body>
+<h1>✨ 알리콘 무지개 빤짝이 옷 입히기 ✨</h1>
+<div class="game-wrap">
+    <div class="panel" id="pL"></div>
+    <div class="stage">
+        <canvas id="uc" width="400" height="470"></canvas>
+        <canvas id="sc" width="400" height="470"></canvas>
+    </div>
+    <div class="panel" id="pR"></div>
+</div>
+<div class="hint">💕 아이템을 클릭해서 알리콘을 꾸며보세요!</div>
+
+<script>
+const RB = ['#ff6b6b','#ff9f43','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff69b4'];
+
+const ITEMS = [
+    { id:'dress',      emoji:'👗', label:'드레스',   p:'L' },
+    { id:'crown',      emoji:'👑', label:'왕관',     p:'L' },
+    { id:'wings',      emoji:'🦋', label:'날개',     p:'L' },
+    { id:'ribbon',     emoji:'🎀', label:'리본',     p:'L' },
+    { id:'sunglasses', emoji:'🕶️', label:'선글라스', p:'L' },
+    { id:'necklace',   emoji:'💎', label:'목걸이',   p:'R' },
+    { id:'bracelet',   emoji:'💫', label:'팔찌',     p:'R' },
+    { id:'shoes',      emoji:'🌟', label:'신발',     p:'R' },
+    { id:'cape',       emoji:'🌈', label:'망토',     p:'R' },
+    { id:'wand',       emoji:'⭐', label:'지팡이',   p:'R' },
+];
+
+const eq = {};
+ITEMS.forEach(i => eq[i.id] = false);
+
+// Pre-bake dress sparkles
+const DS = Array.from({length:28}, () => ({
+    x: 118 + Math.random()*168, y: 265 + Math.random()*115,
+    r: 1.5 + Math.random()*3.5,
+    c: RB[Math.floor(Math.random()*RB.length)]
+}));
+
+ITEMS.forEach(item => {
+    const btn = document.createElement('div');
+    btn.className = 'cloth-btn';
+    btn.id = 'b-'+item.id;
+    btn.innerHTML = item.emoji + '<br><span>'+item.label+'</span>';
+    btn.addEventListener('click', () => toggle(item.id));
+    document.getElementById(item.p==='L'?'pL':'pR').appendChild(btn);
+});
+
+function toggle(id) {
+    eq[id] = !eq[id];
+    document.getElementById('b-'+id).classList.toggle('on', eq[id]);
+    if (eq[id]) burst(160+Math.random()*80, 160+Math.random()*120);
+    draw();
+}
+
+const uc = document.getElementById('uc');
+const sc = document.getElementById('sc');
+const u  = uc.getContext('2d');
+const s  = sc.getContext('2d');
+
+/* ── helpers ──────────────────────────────────────────────────────── */
+function star5(ctx, x, y, r, c, alpha=1, rot=0) {
+    ctx.save();
+    ctx.globalAlpha = alpha; ctx.fillStyle = c;
+    ctx.translate(x,y); ctx.rotate(rot);
+    ctx.beginPath();
+    for (let i=0;i<5;i++){
+        const a=i*2*Math.PI/5-Math.PI/2, ai=a+Math.PI/5;
+        i?ctx.lineTo(Math.cos(a)*r,Math.sin(a)*r):ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);
+        ctx.lineTo(Math.cos(ai)*r*.38, Math.sin(ai)*r*.38);
+    }
+    ctx.closePath(); ctx.fill(); ctx.restore();
+}
+
+/* ── draw order ───────────────────────────────────────────────────── */
+function draw() {
+    u.clearRect(0,0,400,470);
+    if(eq.wand)        drawWand();
+    drawTail();
+    if(eq.wings)       drawWings();
+    if(eq.cape)        drawCape();
+    drawBody();
+    if(eq.dress)       drawDress();
+    drawLegs();
+    if(eq.shoes)       drawShoes();
+    drawNeck();
+    drawHead();
+    drawHorn();
+    if(eq.crown)       drawCrown();
+    if(eq.ribbon)      drawRibbon();
+    drawMane();
+    drawEyes();
+    if(eq.sunglasses)  drawSunglasses();
+    if(eq.necklace)    drawNecklace();
+    if(eq.bracelet)    drawBracelet();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   UNICORN — elegant horse silhouette, facing right
+═══════════════════════════════════════════════════════════════════ */
+
+function drawBody() {
+    u.save();
+    const g = u.createLinearGradient(80,248,295,348);
+    g.addColorStop(0,'#fff8fb'); g.addColorStop(1,'#ffeef5');
+    u.fillStyle = g; u.strokeStyle = '#e8c0d0'; u.lineWidth = 2;
+    u.beginPath();
+    u.moveTo(85, 270);
+    u.bezierCurveTo(118,248, 188,242, 258,254);   // top (back → withers)
+    u.bezierCurveTo(276,258, 292,266, 298,282);   // neck base / chest
+    u.bezierCurveTo(304,298, 300,322, 288,336);   // chest → belly-front
+    u.bezierCurveTo(260,350, 165,356, 96,342);    // belly bottom
+    u.bezierCurveTo(76,334,  70,316,  72,298);    // rump bottom
+    u.bezierCurveTo(72,282,  78,272,  85,270);    // rump top
+    u.closePath();
+    u.fill(); u.stroke();
+    u.restore();
+}
+
+function drawLegs() {
+    // [topX, topY, kneeY, bottomY, width]
+    const legs = [
+        [120, 338, 375, 422, 15],   // back-L
+        [148, 342, 380, 422, 15],   // back-R
+        [242, 328, 368, 422, 15],   // front-L
+        [268, 324, 364, 422, 15],   // front-R
+    ];
+    u.save();
+    u.strokeStyle = '#e0b8cc'; u.lineWidth = 1.8;
+    legs.forEach(([tx,ty,ky,by,w]) => {
+        // upper leg
+        u.fillStyle = '#fff5f9';
+        u.beginPath();
+        u.roundRect(tx-w/2, ty, w, ky-ty, [7,7,3,3]);
+        u.fill(); u.stroke();
+        // lower leg (slightly narrower)
+        u.fillStyle = '#fff0f5';
+        u.beginPath();
+        u.roundRect(tx-w/2+2, ky, w-4, by-ky-6, [3,3,5,5]);
+        u.fill(); u.stroke();
+        // hoof
+        u.fillStyle = '#d4a0b4';
+        u.beginPath();
+        u.ellipse(tx, by, w/2+3, 8, 0, 0, Math.PI*2);
+        u.fill(); u.stroke();
+    });
+    u.restore();
+}
+
+function drawShoes() {
+    const hooves = [[120,422],[148,422],[242,422],[268,422]];
+    const colors = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff'];
+    u.save();
+    hooves.forEach(([x,y],i) => {
+        u.fillStyle = colors[i]; u.shadowColor = colors[i]; u.shadowBlur = 14;
+        u.beginPath(); u.ellipse(x,y,15,10,0,0,Math.PI*2); u.fill();
+        u.fillStyle='rgba(255,255,255,.7)'; u.shadowBlur=0;
+        u.beginPath(); u.ellipse(x-5,y-4,5,3,-.3,0,Math.PI*2); u.fill();
+        star5(u, x+5, y-12, 5, 'white', .85, .4);
+    });
+    u.restore();
+}
+
+function drawNeck() {
+    u.save();
+    const g = u.createLinearGradient(265,265,325,185);
+    g.addColorStop(0,'#fff5f9'); g.addColorStop(1,'#fff0f7');
+    u.fillStyle = g; u.strokeStyle = '#e8c0d0'; u.lineWidth = 2;
+    u.beginPath();
+    u.moveTo(268, 265);                              // neck base-front
+    u.bezierCurveTo(272,240, 282,208, 298,188);     // left (front) edge up
+    u.lineTo(322, 192);                              // top right
+    u.bezierCurveTo(310,210, 302,242, 298,270);     // right (back) edge down
+    u.closePath();
+    u.fill(); u.stroke();
+    u.restore();
+}
+
+function drawHead() {
+    u.save();
+    // Skull
+    const g = u.createRadialGradient(314,173,5,318,176,36);
+    g.addColorStop(0,'#fff8fb'); g.addColorStop(1,'#ffe8f0');
+    u.fillStyle=g; u.strokeStyle='#e8c0d0'; u.lineWidth=2;
+    u.beginPath();
+    u.ellipse(318, 176, 36, 32, 0.06, 0, Math.PI*2);
+    u.fill(); u.stroke();
+
+    // Muzzle — elongated, horse-like (not round)
+    u.fillStyle='#ffe4ee'; u.strokeStyle='#e8c0d0';
+    u.beginPath();
+    u.moveTo(338,172);
+    u.bezierCurveTo(355,174, 368,183, 368,194);
+    u.bezierCurveTo(368,205, 358,213, 343,214);
+    u.bezierCurveTo(326,215, 316,207, 315,198);
+    u.bezierCurveTo(313,190, 320,182, 338,172);
+    u.closePath(); u.fill(); u.stroke();
+
+    // Nostril
+    u.fillStyle='#f09ab5';
+    u.beginPath(); u.ellipse(354,202,5.5,4,.4,0,Math.PI*2); u.fill();
+
+    // Soft mouth line
+    u.strokeStyle='#e0a0b5'; u.lineWidth=1.5;
+    u.beginPath(); u.moveTo(347,212); u.bezierCurveTo(353,218,362,217,366,214); u.stroke();
+
+    // Ear
+    u.fillStyle='#fff5f9'; u.strokeStyle='#e8c0d0'; u.lineWidth=1.5;
+    u.beginPath(); u.moveTo(297,150); u.lineTo(289,122); u.lineTo(306,142); u.closePath();
+    u.fill(); u.stroke();
+    u.fillStyle='#ffb8d0';
+    u.beginPath(); u.moveTo(297,148); u.lineTo(292,128); u.lineTo(305,142); u.closePath(); u.fill();
+
+    u.restore();
+}
+
+function drawHorn() {
+    u.save();
+    const hx=303, hy=148, tx=288, ty=95;
+    const g=u.createLinearGradient(tx,ty,hx+10,hy+8);
+    g.addColorStop(0,'#fff8e0'); g.addColorStop(.4,'#ffe050'); g.addColorStop(1,'#c0880a');
+    u.fillStyle=g; u.strokeStyle='#b8780a'; u.lineWidth=1.5;
+    u.beginPath();
+    u.moveTo(hx-11,hy+5); u.lineTo(tx,ty); u.lineTo(hx+11,hy+1);
+    u.closePath(); u.fill(); u.stroke();
+    // spiral rings
+    u.strokeStyle='rgba(170,110,0,.4)'; u.lineWidth=1;
+    for(let i=0;i<4;i++){
+        const yw=hy+2-i*14;
+        u.beginPath(); u.moveTo(hx-9+i*1.5,yw); u.lineTo(hx+9-i*1.5,yw-5); u.stroke();
+    }
+    star5(u,tx,ty,7,'#ffe566',.9,.5);
+    u.restore();
+}
+
+function drawMane() {
+    u.save();
+    const cols=['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff'];
+    cols.forEach((c,i) => {
+        u.strokeStyle=c; u.lineWidth=9-i*.4; u.lineCap='round';
+        u.shadowColor=c; u.shadowBlur=5;
+        u.beginPath();
+        u.moveTo(298+i*2, 150+i*3);
+        u.bezierCurveTo(286+i*2,178+i*3, 274+i*3,213+i*2, 263+i*3,260+i*4);
+        u.stroke();
+    });
+    u.restore();
+}
+
+function drawTail() {
+    u.save();
+    const cols=['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#c77dff','#ff69b4'];
+    cols.forEach((c,i) => {
+        u.strokeStyle=c; u.lineWidth=8; u.lineCap='round';
+        u.shadowColor=c; u.shadowBlur=4;
+        u.beginPath();
+        u.moveTo(77+i*2, 292+i*2);
+        u.bezierCurveTo(36+i*3,332+i*2, 24+i*4,382+i*2, 44+i*3,425+i*2);
+        u.stroke();
+    });
+    u.restore();
+}
+
+function drawEyes() {
+    u.save();
+    // white
+    u.fillStyle='#fffbfd'; u.strokeStyle='#c8a8b8'; u.lineWidth=1.5;
+    u.beginPath(); u.ellipse(312,172,14,16,-.08,0,Math.PI*2); u.fill(); u.stroke();
+
+    // iris with depth
+    const ig=u.createRadialGradient(311,171,1,312,172,10);
+    ig.addColorStop(0,'#7858c0'); ig.addColorStop(.65,'#3a2060'); ig.addColorStop(1,'#150828');
+    u.fillStyle=ig;
+    u.beginPath(); u.ellipse(312,172,10,12,0,0,Math.PI*2); u.fill();
+
+    // pupil
+    u.fillStyle='#100020';
+    u.beginPath(); u.ellipse(313,173,5.5,7.5,0,0,Math.PI*2); u.fill();
+
+    // catchlights
+    u.fillStyle='white';
+    u.beginPath(); u.arc(307,166,5,0,Math.PI*2); u.fill();
+    u.beginPath(); u.arc(317,170,2.8,0,Math.PI*2); u.fill();
+
+    // lashes
+    u.strokeStyle='#2a1048'; u.lineWidth=2; u.lineCap='round';
+    [[300,160,296,153],[307,157,304,150],[314,158,313,150],[320,162,319,154]].forEach(([x1,y1,x2,y2])=>{
+        u.beginPath(); u.moveTo(x1,y1); u.lineTo(x2,y2); u.stroke();
+    });
+
+    // blush
+    u.fillStyle='rgba(255,130,155,.26)';
+    u.beginPath(); u.ellipse(324,186,15,8,.2,0,Math.PI*2); u.fill();
+
+    u.restore();
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ACCESSORIES
+═══════════════════════════════════════════════════════════════════ */
+
+function drawDress() {
+    u.save();
+    u.globalAlpha=.9;
+    const g=u.createLinearGradient(105,255,278,398);
+    g.addColorStop(0,'#ffb3d9'); g.addColorStop(.22,'#ffdda0');
+    g.addColorStop(.48,'#a0ffd9'); g.addColorStop(.74,'#a0c8ff'); g.addColorStop(1,'#d0a0ff');
+    u.fillStyle=g; u.strokeStyle='rgba(200,140,200,.45)'; u.lineWidth=2;
+    u.beginPath();
+    u.moveTo(142,264);
+    u.bezierCurveTo(110,302, 100,344, 93,408);
+    u.lineTo(305,408);
+    u.bezierCurveTo(294,344, 278,302, 250,264);
+    u.bezierCurveTo(215,252, 174,250, 142,264);
+    u.closePath(); u.fill(); u.stroke();
+
+    // lace hem
+    u.strokeStyle='rgba(255,255,255,.65)'; u.lineWidth=1.5;
+    for(let i=0;i<13;i++){
+        u.beginPath(); u.arc(93+i*17,408,9,Math.PI,0); u.stroke();
+    }
+    // sparkle dots
+    u.globalAlpha=1;
+    DS.forEach(d=>{
+        u.fillStyle=d.c; u.shadowColor=d.c; u.shadowBlur=7;
+        u.beginPath(); u.arc(d.x,d.y,d.r,0,Math.PI*2); u.fill();
+    });
+    u.restore();
+}
+
+function drawCrown() {
+    u.save();
+    const cx=296,cy=143;
+    u.shadowColor='#ffe000'; u.shadowBlur=16;
+    u.fillStyle='#ffd700'; u.strokeStyle='#b8860b'; u.lineWidth=2;
+    u.beginPath();
+    u.moveTo(cx-24,cy+7); u.lineTo(cx-24,cy-9);
+    u.lineTo(cx-14,cy-27); u.lineTo(cx-4,cy-11);
+    u.lineTo(cx+5, cy-32); u.lineTo(cx+14,cy-11);
+    u.lineTo(cx+23,cy-27); u.lineTo(cx+27,cy-9); u.lineTo(cx+27,cy+7);
+    u.closePath(); u.fill(); u.stroke();
+    [['#ff6b6b',cx-9,cy-8],['#6bcb77',cx+7,cy-9],['#4d96ff',cx+20,cy-8]].forEach(([c,gx,gy])=>{
+        u.fillStyle=c; u.shadowColor=c; u.shadowBlur=12;
+        u.beginPath(); u.arc(gx,gy,5.5,0,Math.PI*2); u.fill();
+        u.fillStyle='rgba(255,255,255,.55)'; u.shadowBlur=0;
+        u.beginPath(); u.arc(gx-2,gy-2,2,0,Math.PI*2); u.fill();
+    });
+    u.restore();
+}
+
+function drawRibbon() {
+    u.save();
+    const bx=304, by=148;
+    // left loop
+    u.fillStyle='#ff69b4'; u.strokeStyle='#cc3388'; u.lineWidth=1.5;
+    u.beginPath();
+    u.moveTo(bx,by);
+    u.bezierCurveTo(bx-20,by-22,bx-35,by-8,bx-26,by+6);
+    u.bezierCurveTo(bx-16,by+14,bx-5,by+7,bx,by);
+    u.closePath(); u.fill(); u.stroke();
+    // right loop
+    u.fillStyle='#ff99cc';
+    u.beginPath();
+    u.moveTo(bx,by);
+    u.bezierCurveTo(bx+18,by-20,bx+32,by-6,bx+22,by+6);
+    u.bezierCurveTo(bx+13,by+14,bx+4,by+8,bx,by);
+    u.closePath(); u.fill(); u.stroke();
+    // knot
+    u.fillStyle='#ff69b4'; u.shadowColor='#ff69b4'; u.shadowBlur=8;
+    u.beginPath(); u.arc(bx,by,5.5,0,Math.PI*2); u.fill();
+    // tails
+    u.strokeStyle='#ff69b4'; u.lineWidth=5; u.lineCap='round'; u.shadowBlur=0;
+    u.beginPath(); u.moveTo(bx,by+4); u.bezierCurveTo(bx-6,by+18,bx-2,by+28,bx-9,by+36); u.stroke();
+    u.beginPath(); u.moveTo(bx,by+4); u.bezierCurveTo(bx+6,by+17,bx+10,by+27,bx+14,by+33); u.stroke();
+    // sparkles
+    star5(u,bx-25,by-12,5,'#fff',.85,.3);
+    star5(u,bx+20,by-10,5,'#fff',.85,-.4);
+    u.restore();
+}
+
+function drawSunglasses() {
+    u.save();
+    // single visible lens (side profile) — star-gem shape + sparkle
+    const lx=310, ly=173;
+    // tinted lens
+    const lg=u.createRadialGradient(lx-2,ly-2,1,lx,ly,14);
+    lg.addColorStop(0,'rgba(255,80,160,.55)');
+    lg.addColorStop(.5,'rgba(80,160,255,.4)');
+    lg.addColorStop(1,'rgba(160,80,255,.3)');
+    u.fillStyle=lg; u.strokeStyle='#ff44aa'; u.lineWidth=3;
+    u.shadowColor='#ff44aa'; u.shadowBlur=10;
+    u.beginPath(); u.arc(lx,ly,14,0,Math.PI*2); u.fill(); u.stroke();
+    // lens reflection
+    u.fillStyle='rgba(255,255,255,.5)'; u.shadowBlur=0;
+    u.beginPath(); u.ellipse(lx-5,ly-5,5,3,-.5,0,Math.PI*2); u.fill();
+    // arm (going back toward ear)
+    u.strokeStyle='#ff44aa'; u.lineWidth=2.5; u.shadowColor='#ff44aa'; u.shadowBlur=6;
+    u.beginPath(); u.moveTo(lx-14,ly); u.bezierCurveTo(lx-22,ly-3,lx-27,ly-7,lx-30,ly-10); u.stroke();
+    // front bridge stub
+    u.beginPath(); u.moveTo(lx+14,ly); u.lineTo(lx+22,ly-3); u.stroke();
+    // star deco on frame
+    star5(u,lx,ly-15,4,'#ffe566',.92,.25);
+    u.restore();
+}
+
+function drawNecklace() {
+    u.save();
+    const cx=292, cy=250;
+    // chain arc
+    u.strokeStyle='#ffd700'; u.lineWidth=2.5; u.shadowColor='#ffd700'; u.shadowBlur=8;
+    u.beginPath(); u.arc(cx,cy,33,Math.PI*.72,Math.PI*2.28); u.stroke();
+    // gems
+    RB.forEach((c,i)=>{
+        const a=Math.PI*.72+(i/6)*Math.PI*1.56;
+        const gx=cx+Math.cos(a)*33, gy=cy+Math.sin(a)*33;
+        u.fillStyle=c; u.shadowColor=c; u.shadowBlur=12;
+        u.beginPath(); u.arc(gx,gy,6,0,Math.PI*2); u.fill();
+        u.fillStyle='rgba(255,255,255,.55)'; u.shadowBlur=0;
+        u.beginPath(); u.arc(gx-2,gy-2,2.2,0,Math.PI*2); u.fill();
+    });
+    // pendant (star)
+    star5(u,cx,cy+43,12,'#ffd700',1,.18);
+    star5(u,cx,cy+43,7,'#fff8d0',.9,.74);
+    u.fillStyle='#ff4488'; u.shadowColor='#ff4488'; u.shadowBlur=10;
+    u.beginPath(); u.arc(cx,cy+43,5,0,Math.PI*2); u.fill();
+    u.restore();
+}
+
+function drawBracelet() {
+    u.save();
+    // front-L leg, lower portion
+    const bx=242, by=380;
+    u.lineWidth=7; u.lineCap='round';
+    RB.slice(0,5).forEach((c,i)=>{
+        u.strokeStyle=c; u.shadowColor=c; u.shadowBlur=9;
+        u.beginPath();
+        u.arc(bx, by, 13-i*.6, Math.PI*1.08+i*.06, Math.PI*1.92+i*.06);
+        u.stroke();
+    });
+    star5(u, bx+14, by-4, 6, '#ffd700', 1, .6);
+    u.restore();
+}
+
+function drawWings() {
+    u.save();
+    [[true,98,292],[false,296,286]].forEach(([L,ox,oy])=>{
+        const d=L?-1:1;
+        // primary wing
+        const g=u.createLinearGradient(ox,oy-90,ox+d*105,oy+45);
+        g.addColorStop(0,'rgba(200,140,255,.9)'); g.addColorStop(.45,'rgba(140,200,255,.8)');
+        g.addColorStop(1,'rgba(255,220,140,.55)');
+        u.fillStyle=g; u.strokeStyle='rgba(170,120,230,.5)'; u.lineWidth=1.5; u.globalAlpha=.88;
+        u.beginPath();
+        u.moveTo(ox,oy);
+        u.bezierCurveTo(ox+d*52,oy-94,ox+d*104,oy-72,ox+d*92,oy+14);
+        u.bezierCurveTo(ox+d*80,oy+40,ox+d*34,oy+44,ox,oy+38);
+        u.closePath(); u.fill(); u.stroke();
+        // secondary wing
+        const g2=u.createLinearGradient(ox,oy-96,ox+d*68,oy-12);
+        g2.addColorStop(0,'rgba(255,150,200,.85)'); g2.addColorStop(1,'rgba(140,220,255,.65)');
+        u.fillStyle=g2;
+        u.beginPath();
+        u.moveTo(ox,oy-12);
+        u.bezierCurveTo(ox+d*32,oy-88,ox+d*70,oy-90,ox+d*64,oy-22);
+        u.bezierCurveTo(ox+d*48,oy-4,ox+d*20,oy-2,ox,oy-12);
+        u.closePath(); u.fill(); u.stroke();
+        // veins
+        u.strokeStyle='rgba(215,175,255,.48)'; u.lineWidth=1;
+        for(let v=0;v<4;v++){
+            const t=v/3;
+            u.beginPath(); u.moveTo(ox,oy+t*22); u.lineTo(ox+d*(78-t*22),oy-62+t*74); u.stroke();
+        }
+    });
+    u.restore();
+}
+
+function drawCape() {
+    u.save();
+    RB.slice(0,6).forEach((c,i)=>{
+        u.fillStyle=c; u.globalAlpha=.62-i*.05;
+        u.beginPath();
+        u.moveTo(140+i*3,268);
+        u.bezierCurveTo(85+i*2,314+i*4,65+i*3,365+i*2,80+i*2,424-i);
+        u.lineTo(92+i*3,424-i);
+        u.bezierCurveTo(78+i*3,365+i*2,99+i*2,314+i*4,150+i*3,273);
+        u.closePath(); u.fill();
+    });
+    u.restore();
+}
+
+function drawWand() {
+    u.save();
+    // Floating wand in front of unicorn
+    const wx=358, wy=270;
+    // stick
+    u.strokeStyle='#c8a020'; u.lineWidth=5; u.lineCap='round';
+    u.shadowColor='#ffd700'; u.shadowBlur=8;
+    u.beginPath(); u.moveTo(wx,wy+8); u.lineTo(wx+6,wy+70); u.stroke();
+    // big star
+    u.shadowColor='#ffe566'; u.shadowBlur=22;
+    star5(u,wx,wy,24,'#ffd700',1,.12);
+    star5(u,wx,wy,15,'#fffae0',.88,.74);
+    // rainbow orbit dots
+    RB.forEach((c,i)=>{
+        const a=(i/RB.length)*Math.PI*2;
+        const rx=wx+Math.cos(a)*30, ry=wy+Math.sin(a)*30;
+        u.fillStyle=c; u.shadowColor=c; u.shadowBlur=10;
+        u.beginPath(); u.arc(rx,ry,4.5,0,Math.PI*2); u.fill();
+    });
+    u.restore();
+}
+
+/* ── sparkle particles ────────────────────────────────────────────── */
+let particles = [];
+function burst(cx,cy) {
+    for(let i=0;i<42;i++){
+        const spd=1.5+Math.random()*5, ang=Math.random()*Math.PI*2;
+        particles.push({ x:cx,y:cy, vx:Math.cos(ang)*spd, vy:Math.sin(ang)*spd-2,
+            r:3+Math.random()*6.5, color:RB[Math.floor(Math.random()*RB.length)],
+            alpha:1, rot:Math.random()*Math.PI*2, spin:(Math.random()-.5)*.24 });
+    }
+}
+function animP() {
+    s.clearRect(0,0,400,470);
+    particles = particles.filter(p=>p.alpha>.02);
+    particles.forEach(p=>{
+        star5(s,p.x,p.y,p.r,p.color,p.alpha,p.rot);
+        p.x+=p.vx; p.y+=p.vy; p.vy+=.13;
+        p.alpha-=.02; p.rot+=p.spin;
+    });
+    requestAnimationFrame(animP);
+}
+
+/* ── floating bg stars ────────────────────────────────────────────── */
+['✨','🌟','💫','⭐'].forEach((e,ei) => {
+    for(let i=0;i<3;i++){
+        const el=document.createElement('div');
+        el.className='bg-star'; el.textContent=e;
+        el.style.left=Math.random()*100+'vw';
+        el.style.animationDuration=(9+Math.random()*13)+'s';
+        el.style.animationDelay=(-Math.random()*16)+'s';
+        el.style.fontSize=(13+Math.random()*17)+'px';
+        document.body.appendChild(el);
+    }
+});
+
+draw(); animP();
+</script>
+</body>
+</html>
