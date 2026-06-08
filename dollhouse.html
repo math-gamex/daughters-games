@@ -225,6 +225,7 @@ header{
     <button class="mode on" data-mode="furniture">🛋️ 가구</button>
     <button class="mode" data-mode="char">👧 캐릭터</button>
     <button class="mode" data-mode="pet">🐾 펫</button>
+    <button class="mode" data-mode="sticker">🐱 동물스티커</button>
   </div>
   <div id="panelFurniture">
     <div class="search"><input id="search" placeholder="가구 이름 검색 (예: 소파, 무지개, 침대)"></div>
@@ -233,6 +234,7 @@ header{
   </div>
   <div id="panelChar" class="editor" style="display:none"></div>
   <div id="panelPet" class="editor" style="display:none"></div>
+  <div id="panelSticker" style="display:none; flex:1 1 auto; overflow-y:auto;"></div>
 </div>
 
 <!-- color picker popup -->
@@ -1195,17 +1197,81 @@ function makeEditor(panel, cfg){
 makeEditor(document.getElementById('panelChar'), {state:charOpts, parts:charParts, builder:buildCharacter, baseW:92, prevSize:86, focusInit:'topColor', nameForCK:charNames, ckList:['skinColor','hairColor','topColor','bottomColor','shoesColor','hatColor','accColor']});
 makeEditor(document.getElementById('panelPet'), {state:petOpts, parts:petParts, builder:buildPet, baseW:104, prevSize:92, focusInit:'color', nameForCK:petNames, ckList:['color','accColor']});
 
+/* =========================================================
+   IMAGE STICKER CHARACTERS
+========================================================= */
+const IMAGE_CHARS=[
+  {name:'유니콘',        src:'characters/unicorn.png',         bw:120, cat:'유니콘'},
+  {name:'무지개 유니콘', src:'characters/unicorn2.jpeg',        bw:120, cat:'유니콘'},
+  {name:'흰 고양이',    src:'characters/cat-white.jpeg',       bw:108, cat:'고양이'},
+  {name:'주황 고양이',  src:'characters/cat-orange.jpeg',      bw:108, cat:'고양이'},
+  {name:'칼리코 고양이',src:'characters/cat-calico.jpeg',      bw:108, cat:'고양이'},
+  {name:'신난 고양이',  src:'characters/cat-happy.jpeg',       bw:108, cat:'고양이'},
+  {name:'놀란 고양이',  src:'characters/cat-excited.jpeg',     bw:108, cat:'고양이'},
+  {name:'충격 고양이',  src:'characters/cat-shocked.jpeg',     bw:108, cat:'고양이'},
+  {name:'앵무새',       src:'characters/parrot.jpeg',          bw:96,  cat:'새'},
+  {name:'무지개 앵무새',src:'characters/parrot-rainbow.jpeg',  bw:96,  cat:'새'},
+  {name:'주황 새',      src:'characters/bird-orange.jpeg',     bw:96,  cat:'새'},
+  {name:'파랑 새',      src:'characters/bird-blue.jpeg',       bw:96,  cat:'새'},
+  {name:'궁금한 새',    src:'characters/bird-curious.jpeg',    bw:96,  cat:'새'},
+  {name:'통통 파랑 새', src:'characters/bird-blue-chubby.jpeg',bw:96,  cat:'새'},
+];
+
+const STICKER_CATS=['전체','유니콘','고양이','새'];
+
+function buildStickerPanel(){
+  const panel=document.getElementById('panelSticker');
+  let curCatS='전체';
+  panel.style.display='flex'; panel.style.flexDirection='column';
+
+  // 탭
+  const tabRow=document.createElement('div'); tabRow.className='tabs'; tabRow.style.padding='6px 10px 4px';
+  STICKER_CATS.forEach(name=>{
+    const b=document.createElement('button'); b.className='tab'+(name==='전체'?' on':''); b.textContent=name;
+    b.onclick=()=>{
+      curCatS=name;
+      tabRow.querySelectorAll('.tab').forEach(x=>x.classList.remove('on')); b.classList.add('on');
+      renderSGrid();
+    };
+    tabRow.appendChild(b);
+  });
+  panel.appendChild(tabRow);
+
+  // 그리드
+  const grid=document.createElement('div'); grid.className='grid'; panel.appendChild(grid);
+
+  function renderSGrid(){
+    grid.innerHTML='';
+    const list=curCatS==='전체'? IMAGE_CHARS : IMAGE_CHARS.filter(c=>c.cat===curCatS);
+    list.forEach(ch=>{
+      const card=document.createElement('div'); card.className='card';
+      card.innerHTML=`<div class="thumb" style="height:62px"><img src="${ch.src}" style="max-width:96%;max-height:62px;object-fit:contain;border-radius:8px;"></div><div class="nm">${ch.name}</div>`;
+      card.onclick=()=>{
+        const sw=stage.clientWidth;
+        const bw=ch.bw*(sw<420?.88:1);
+        spawn((w)=>`<img src="${ch.src}" style="width:${w}px;height:auto;display:block;">`, bw);
+        if(catalogEl.classList.contains('min')) toggleBtn.click();
+      };
+      grid.appendChild(card);
+    });
+  }
+  renderSGrid();
+}
+
 /* mode switching */
 (function(){
   const modebar=document.getElementById('modebar');
-  const pf=document.getElementById('panelFurniture'), pc=document.getElementById('panelChar'), pp=document.getElementById('panelPet');
+  const pf=document.getElementById('panelFurniture'), pc=document.getElementById('panelChar'), pp=document.getElementById('panelPet'), ps=document.getElementById('panelSticker');
+  let stickerBuilt=false;
   modebar.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{
     modebar.querySelectorAll('.mode').forEach(x=>x.classList.remove('on')); b.classList.add('on');
     const m=b.dataset.mode;
     pf.style.display=m==='furniture'?'':'none';
     pc.style.display=m==='char'?'':'none';
     pp.style.display=m==='pet'?'':'none';
-    catTitle.textContent = m==='furniture'?'가구 카탈로그': m==='char'?'캐릭터 꾸미기':'펫 꾸미기';
+    ps.style.display=m==='sticker'?'flex':'none';
+    if(m==='sticker' && !stickerBuilt){ buildStickerPanel(); stickerBuilt=true; }
+    catTitle.textContent = m==='furniture'?'가구 카탈로그': m==='char'?'캐릭터 꾸미기': m==='pet'?'펫 꾸미기':'동물 스티커';
     catalogEl.classList.toggle('editing', m!=='furniture');
     if(catalogEl.classList.contains('min')) toggleBtn.click();
   });
