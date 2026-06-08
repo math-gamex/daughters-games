@@ -224,10 +224,12 @@ function drawRibbon(){
     u.restore();
 }
 
-/* 🕶️ 선글라스 — 눈 위 (측면 렌즈 1개) */
+/* 🕶️ 선글라스 — 눈 위 (측면 렌즈 1개)
+ * 유니콘은 왼쪽을 향함: 귀는 렌즈 오른쪽(+x), 코는 왼쪽(-x)
+ */
 function drawSunglasses(){
     u.save();
-    const lx=157, ly=133;
+    const lx=163, ly=148;
     const lg=u.createRadialGradient(lx-2,ly-2,1,lx,ly,14);
     lg.addColorStop(0,'rgba(255,80,160,.6)');
     lg.addColorStop(.5,'rgba(80,160,255,.45)');
@@ -238,32 +240,35 @@ function drawSunglasses(){
     u.fillStyle='rgba(255,255,255,.55)'; u.shadowBlur=0;
     u.beginPath(); u.ellipse(lx-4,ly-5,5,3,-.5,0,Math.PI*2); u.fill();
     u.strokeStyle='#ff44aa'; u.lineWidth=2.5; u.shadowColor='#ff44aa'; u.shadowBlur=5;
-    // 안경다리 귀 방향 (왼쪽으로)
-    u.beginPath(); u.moveTo(lx-14,ly); u.bezierCurveTo(lx-22,ly-2,lx-28,ly-6,lx-32,ly-9); u.stroke();
-    // 앞쪽 다리
-    u.beginPath(); u.moveTo(lx+14,ly); u.lineTo(lx+22,ly-1); u.stroke();
+    // 안경다리 → 귀 방향 (오른쪽, 뒤쪽)
+    u.beginPath(); u.moveTo(lx+14,ly); u.bezierCurveTo(lx+22,ly-2,lx+28,ly-6,lx+32,ly-10); u.stroke();
+    // 코 방향 짧은 다리 (왼쪽, 앞쪽)
+    u.beginPath(); u.moveTo(lx-14,ly); u.lineTo(lx-22,ly+1); u.stroke();
     star5(u,lx,ly-15,4,'#ffe566',.9,.25);
     u.restore();
 }
 
-/* 💎 목걸이 — 목 아래 */
+/* 💎 목걸이 — 목/가슴 앞쪽
+ * cx=155, cy=225: 왼쪽을 향하는 유니콘 목 중심
+ * 호: 329°→210° (시계방향 241°) — 뒤쪽 목에서 앞 가슴까지
+ */
 function drawNecklace(){
     u.save();
-    const cx=185, cy=205;
+    const cx=155, cy=225, r=30;
     u.strokeStyle='#ffd700'; u.lineWidth=2.5; u.shadowColor='#ffd700'; u.shadowBlur=8;
-    u.beginPath(); u.arc(cx,cy,34,Math.PI*.55,Math.PI*2.45); u.stroke();
+    u.beginPath(); u.arc(cx,cy,r,Math.PI*1.83,Math.PI*1.17); u.stroke();
     RB.forEach((c,i)=>{
-        const a=Math.PI*.55+(i/6)*Math.PI*1.9;
-        const gx=cx+Math.cos(a)*34, gy=cy+Math.sin(a)*34;
+        const a=Math.PI*1.83+(i/6)*Math.PI*1.34;
+        const gx=cx+Math.cos(a)*r, gy=cy+Math.sin(a)*r;
         u.fillStyle=c; u.shadowColor=c; u.shadowBlur=10;
         u.beginPath(); u.arc(gx,gy,5.5,0,Math.PI*2); u.fill();
         u.fillStyle='rgba(255,255,255,.55)'; u.shadowBlur=0;
         u.beginPath(); u.arc(gx-1.8,gy-1.8,2,0,Math.PI*2); u.fill();
     });
-    star5(u,cx,cy+46,11,'#ffd700',1,.18);
-    star5(u,cx,cy+46,6.5,'#fff8d0',.9,.74);
+    star5(u,cx,cy+42,11,'#ffd700',1,.18);
+    star5(u,cx,cy+42,6.5,'#fff8d0',.9,.74);
     u.fillStyle='#ff4488'; u.shadowColor='#ff4488'; u.shadowBlur=10;
-    u.beginPath(); u.arc(cx,cy+46,4.5,0,Math.PI*2); u.fill();
+    u.beginPath(); u.arc(cx,cy+42,4.5,0,Math.PI*2); u.fill();
     u.restore();
 }
 
@@ -294,10 +299,11 @@ function drawDress(){
     u.restore();
 }
 
-/* 🌟 신발 — 4개 발굽 */
+/* 🌟 신발 — 4개 발굽
+ * 앞발굽(왼쪽 x≈143,174) / 뒷발굽(오른쪽 x≈242,273)
+ */
 function drawShoes(){
-    // 앞발굽 2개(왼쪽), 뒷발굽 2개(오른쪽)
-    [[198,408],[185,412],[256,408],[244,412]].forEach(([x,y],i)=>{
+    [[143,413],[174,416],[242,413],[273,416]].forEach(([x,y],i)=>{
         u.save();
         u.fillStyle=RB[i]; u.shadowColor=RB[i]; u.shadowBlur=14;
         u.beginPath(); u.ellipse(x,y,15,9,0,0,Math.PI*2); u.fill();
@@ -308,10 +314,10 @@ function drawShoes(){
     });
 }
 
-/* 💫 팔찌 — 앞다리 */
+/* 💫 팔찌 — 앞다리 (왼쪽 앞발, x≈148) */
 function drawBracelet(){
     u.save();
-    const bx=197, by=358;
+    const bx=148, by=348;
     u.lineWidth=7; u.lineCap='round';
     RB.slice(0,5).forEach((c,i)=>{
         u.strokeStyle=c; u.shadowColor=c; u.shadowBlur=9;
@@ -368,10 +374,10 @@ function drawCape(){
     u.restore();
 }
 
-/* ⭐ 지팡이 — 머리 앞쪽 공중에 떠있음 */
+/* ⭐ 지팡이 — 갈기/꼬리 위쪽 빈 공간에 떠있음 */
 function drawWand(){
     u.save();
-    const wx=80, wy=185;
+    const wx=312, wy=88;
     u.strokeStyle='#c8a020'; u.lineWidth=5; u.lineCap='round';
     u.shadowColor='#ffd700'; u.shadowBlur=8;
     u.beginPath(); u.moveTo(wx,wy+8); u.lineTo(wx-4,wy+68); u.stroke();
