@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Addition Quiz • Fixed & Working</title>
 <style>
   :root{
@@ -110,6 +110,30 @@
   @keyframes sparkle{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(0.2);opacity:0}}
 
   footer{padding:14px;color:#666;font-size:14px;text-align:center}
+
+  /* ── iPhone 반응형 ── */
+  @media (max-width: 480px) {
+    body { overflow-y: auto; padding-bottom: env(safe-area-inset-bottom); }
+    /* 세로로 A / + / B / = / 답 배치 */
+    .groups {
+      grid-template-columns: 1fr;
+      justify-items: center;
+      gap: 8px 0;
+    }
+    #numA   { grid-column:1; grid-row:1 }
+    #plus   { grid-column:1; grid-row:2 }
+    #numB   { grid-column:1; grid-row:3 }
+    #equal  { grid-column:1; grid-row:4 }
+    #answer { grid-column:1; grid-row:5 }
+    #blocksA,#blocksB,#ansBlocks,#plusSpacer,#equalSpacer { display:none }
+    .numBig  { width:min(160px,44vw); height:82px; font-size:52px }
+    .answerInput { width:min(160px,44vw); height:82px; font-size:30px }
+    .answerInput.filled { font-size:52px }
+    .sign { font-size:40px; padding:2px }
+    /* 키패드: 5열 균등 분배 */
+    .keypad { grid-template-columns:repeat(5,1fr); gap:7px }
+    .keypad button { min-height:58px; font-size:18px; border-radius:10px }
+  }
 </style>
 </head>
 <body>

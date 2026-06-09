@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Fish Catch Addition</title>
 <style>
   :root{
@@ -98,6 +98,17 @@
     .caught{ width:92px;height:92px;font-size:62px; }
     .numBig{ font-size:56px; width:180px; height:110px; }
     .sign{ font-size:44px; }
+  }
+  /* ── iPhone 반응형 ── */
+  @media (max-width: 480px) {
+    :root { --panelW:100vw; --fishSize:50px; --tankH:120px }
+    body { overflow-y: auto; padding-bottom: env(safe-area-inset-bottom); }
+    /* 숫자 행: 가로 압축, 어항: 그대로 좌우 */
+    .numBig { width:100%; min-width:0; height:68px; font-size:42px; padding:5px; border-width:2px }
+    .sign { font-size:26px; padding:0 2px }
+    #net { max-width:100% }
+    .net { grid-template-columns:repeat(auto-fill, minmax(58px,1fr)); grid-auto-rows:58px }
+    .caught { width:64px; height:64px; font-size:46px }
   }
 </style>
 </head>

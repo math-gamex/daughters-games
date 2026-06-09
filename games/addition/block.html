@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Block Addition Game</title>
 <style>
   :root{
@@ -118,6 +118,31 @@
     background:radial-gradient(circle,#fff,transparent);animation:sparkle .7s ease-out forwards;}
   @keyframes sparkle{0%{transform:translate(0,0) scale(1);opacity:1;}100%{transform:translate(var(--dx),var(--dy)) scale(0.2);opacity:0;}}
   footer{padding:14px;color:#666;font-size:14px;text-align:center;}
+
+  /* ── iPhone 반응형 ── */
+  @media (max-width: 480px) {
+    :root { --block:24px; --gap:5px }
+    body { overflow-y: auto; padding-bottom: env(safe-area-inset-bottom); }
+    /* A|B 2열, 답 하단 배치 */
+    .groups {
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 6px;
+      justify-items: center;
+    }
+    .groups > div:not([id]):not([class]) { display:none } /* 빈 스페이서 숨김 */
+    .groups > *:nth-child(2) { display:none }             /* + 기호 숨김 */
+    .groups > *:nth-child(4) { grid-column:1/-1; grid-row:4; font-size:32px } /* = */
+    #numA      { grid-column:1; grid-row:1; width:100% }
+    #numB      { grid-column:2; grid-row:1; width:100% }
+    #blocksA   { grid-column:1; grid-row:2 }
+    #blocksB   { grid-column:2; grid-row:2 }
+    #countA    { grid-column:1; grid-row:3; font-size:12px }
+    #countB    { grid-column:2; grid-row:3; font-size:12px }
+    #answerNum { grid-column:1/-1; grid-row:5; max-width:150px }
+    #ansBlocks { grid-column:1/-1; grid-row:6 }
+    #countAns  { grid-column:1/-1; grid-row:7; font-size:12px }
+    .numBig { font-size:40px; height:70px }
+  }
 </style>
 </head>
 <body>

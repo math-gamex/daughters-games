@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
 <title>Rainbow Counting Game • Surprise Mode (Fixed)</title>
 <style>
   :root{--bg:#fafafa;--fg:#111;--border:#d9d9d9;--muted:#666;}
@@ -111,6 +111,17 @@
 
   footer{padding:14px;color:var(--muted);font-size:14px;text-align:center}
   label.small{font-size:13px;color:#333;font-weight:800;margin-right:4px}
+
+  /* ── iPhone 반응형 ── */
+  @media (max-width: 480px) {
+    body { padding-bottom: env(safe-area-inset-bottom); }
+    h1 { font-size: 16px }
+    header { padding: 10px 12px }
+    button, select { padding: 8px 10px; font-size: 13px; min-height: 40px; border-radius: 10px }
+    .board { gap: 4px }
+    .tile { border-radius: 8px }
+    .bubble { font-size: 10px; bottom: 3px; right: 4px; padding: 2px 4px }
+  }
 </style>
 </head>
 <body>
