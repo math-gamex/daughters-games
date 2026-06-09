@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Rainbow Counting Game • Base-10 Blocks + Half Number Line (Equal Height)</title>
+<style>
+  :root{--bg:#fafafa;--fg:#111;--border:#d9d9d9;--muted:#666;}
+
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font-family:system-ui,-apple-system,Segoe UI,Roboto,Noto Sans,Arial,sans-serif;
+    display:flex;flex-direction:column;align-items:center;min-height:100vh;
+  }
+
+  header{
+    width:100%;max-width:1200px;padding:14px 16px;
+    display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between;
+  }
+  h1{margin:0;font-size:22px;font-weight:900}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button,select,label{
+    border:1px solid var(--border);background:#fff;color:#111;
+    border-radius:12px;padding:10px 14px;font-size:15px;font-weight:700;cursor:pointer;min-height:44px;
+  }
+  label.small{border:none;padding:0 4px 0 0;cursor:auto;font-weight:800}
+  button.primary{background:#111;color:#fff;border-color:#111}
+  button:active{transform:scale(.97)}
+
+  /* ===== Two-column layout ===== */
+  main{
+    width:100%;max-width:1200px;padding:8px 16px 20px;
+    display:grid;gap:16px;
+    grid-template-columns:minmax(0,1.05fr) minmax(0,0.95fr);
+    align-items:start; /* 각 칼럼 위쪽 정렬 */
+  }
+  main > section, main > aside { min-width:0; }
+  @media (max-width:1200px){ main{ grid-template-columns:1fr; } }
+
+  /* Top bar */
+  .topbar{
+    border:1px solid var(--border);border-radius:12px;padding:10px 12px;background:#fff;
+    display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px;
+  }
+  .status{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+  .pill{padding:6px 10px;border-radius:999px;background:#fff;border:1px solid var(--border);font-weight:800}
+  .prompt{font-weight:900;font-size:18px}
+
+  /* ===== Left: Number board (compact) ===== */
+  .board{
+    display:grid;
+    grid-template-columns:repeat(10, clamp(32px, 7.2vw, 58px)); /* 작게 유지 */
+    justify-content:start;
+    gap:4px;
+  }
+  .tile{
+    aspect-ratio:1/1;border:1.5px solid var(--border);border-radius:10px;background:#fff;
+    display:flex;align-items:center;justify-content:center;position:relative;user-select:none;cursor:pointer;
+    transition:background .2s,transform .1s,box-shadow .15s,filter .15s;
+  }
+  .tile:hover{transform:scale(1.05);box-shadow:0 3px 8px rgba(0,0,0,.12)}
+  .tile:active{transform:scale(.96)}
+  .tile.tapped{filter:saturate(130%) brightness(1.05);box-shadow:0 0 0 2px rgba(255,255,255,.6) inset,0 0 0 1.5px rgba(0,0,0,.1)}
+
+  .num{font-weight:900;font-size:clamp(14px, 2.6vw, 20px);line-height:1;color:#111;letter-spacing:.2px}
+  body.hide-nums .num{color:transparent !important}
+
+  /* 10 colors */
+  .c1 {background:#ff4b4b} .c1 .num{color:#fff}
+  .c2 {background:#ff8a2b} .c2 .num{color:#fff}
+  .c3 {background:#ffd93d} .c3 .num{color:#222}
+  .c4 {background:#4cd964} .c4 .num{color:#fff}
+  .c5 {background:#4da6ff} .c5 .num{color:#fff}
+  .c6 {background:#7a5cff} .c6 .num{color:#fff}
+  .c7 {background:#9c27b0} .c7 .num{color:#fff}
+  .c8 {background:#ff77b4} .c8 .num{color:#fff}
+  .c9 {background:#80deea} .c9 .num{color:#111}
+  .c10{background:#b0bec5} .c10 .num{color:#111}
+
+  /* Target blink */
+  @keyframes pulse {0%{box-shadow:0 0 0 0 rgba(255,181,0,.8)}70%{box-shadow:0 0 0 10px rgba(255,181,0,0)}100%{box-shadow:0 0 0 0 rgba(255,181,0,0)}}
+  .blink{animation:pulse 1.2s ease-out infinite;border-color:#ffb500}
+
+  /* Wrong shake */
+  @keyframes shake {0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}50%{transform:translateX(4px)}75%{transform:translateX(-2px)}}
+  .wrong{animation:shake .25s linear}
+
+  .bubble{
+    position:absolute;bottom:4px;right:6px;font-size:11px;font-weight:800;padding:2px 5px;border-radius:999px;
+    background:rgba(255,255,255,.85);color:#111;box-shadow:0 1px 3px rgba(0,0,0,.18);pointer-events:none;opacity:0;transform:translateY(0);
+    transition:opacity .2s,transform .2s;
+  }
+  .tile.show-bubble .bubble{opacity:1;transform:translateY(-3px)}
+
+  .sparkle{position:fixed;width:10px;height:10px;pointer-events:none;border-radius:50%;
+    background:radial-gradient(circle,#fff,transparent);animation:sparkle .7s ease-out forwards;}
+  @keyframes sparkle{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--dx),var(--dy)) scale(0.2);opacity:0}}
+
+  /* ===== Right: Concepts (equal height + spacing) ===== */
+  aside.panel{
+    border:1px solid var(--border);border-radius:12px;background:#fff;
+    padding:16px 14px;display:flex;flex-direction:column;
+    gap:14px;           /* 블록 사이 간격 */
+    min-width:0;
+    overflow:auto;      /* 내용이 많을 때 내부 스크롤 (세로 길이는 좌측과 동일) */
+    height:auto;        /* JS가 여기 높이를 동기화 */
+  }
+  .panel h2{margin:0 0 2px 0;font-size:18px}
+  .sub{font-size:13px;color:#444;margin-top:-2px}
+
+  /* 각 개념 블록의 상하 여백 */
+  .concept-block{
+    padding-block:10px; /* 위아래 공간 */
+    border-bottom:1px dashed #ececec;
+  }
+  .concept-block:last-child{border-bottom:none}
+
+  /* Base-10 Blocks — square stacks (tens) + single (ones) */
+  .placewrap{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+  .tensStack{
+    display:grid;grid-template-rows:repeat(10, 14px);grid-template-columns:14px;
+    gap:3px;padding:4px;border:1px solid #e0c200;background:#fff9c4;border-radius:6px;
+  }
+  .sq10{
+    width:14px;height:14px;background:#ffd54f;border:1px solid #e0b400;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.5);
+  }
+  .ones{display:flex;gap:6px;flex-wrap:wrap;max-width:180px}
+  .unit{width:14px;height:14px;border-radius:3px;background:#ff77b4;border:1px solid #d95c93}
+
+  /* Number Line — half width */
+  .nline{ position:relative;height:26px;border-top:2px solid #333;margin-top:6px;width:50%; }
+  .nline::before,.nline::after{content:'';position:absolute;top:-6px;width:2px;height:12px;background:#333}
+  .nline::before{left:0}.nline::after{right:0}
+  .tickN{position:absolute;top:-6px;width:2px;height:12px;background:#999}
+  .marker{position:absolute;top:-10px;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:10px solid #ff4b4b;transform:translateX(-50%)}
+
+  footer{padding:14px;color:var(--muted);font-size:14px;text-align:center}
+</style>
+</head>
+<body>
+  <header>
+    <h1>🌈 Rainbow Counting Game (1–100)</h1>
+    <div class="controls">
+      <button id="voiceBtn" class="primary">🗣️ Voice: On</button>
+      <label class="small" for="readLang">Reading:</label>
+      <select id="readLang" title="Audio language">
+        <option value="en">English</option>
+        <option value="kr">Korean</option>
+        <option value="both">Both</option>
+      </select>
+      <button id="toggleBtn">Hide Numbers</button>
+      <button id="resetBtn">Reset All</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- LEFT -->
+    <section id="leftCol">
+      <div class="topbar">
+        <div class="status">
+          <span class="pill" id="modePill">Mode: Normal</span>
+          <span class="pill">Target: <strong id="targetLabel">—</strong></span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span class="prompt" id="promptText">Tap any number!</span>
+          <button id="surpriseBtn">🎲 New Surprise</button>
+        </div>
+      </div>
+      <div id="board" class="board" role="grid" aria-label="100 grid"></div>
+    </section>
+
+    <!-- RIGHT -->
+    <aside class="panel" id="concepts">
+      <h2>Concepts</h2>
+      <div class="sub">Base-10 square blocks and a shorter number line.</div>
+
+      <div class="concept-block">
+        <strong>Base-10 Blocks</strong>
+        <div class="placewrap">
+          <div id="tens" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+          <div id="ones" class="ones"></div>
+        </div>
+        <div id="decomp" class="sub" style="margin-top:6px"></div>
+      </div>
+
+      <div class="concept-block">
+        <strong>Number Line (0–100, half width)</strong>
+        <div class="nline" id="nline"></div>
+      </div>
+    </aside>
+  </main>
+
+  <footer>Click a tile to color it and hear the number. Surprise mode highlights a random target.</footer>
+
+<script>
+(() => {
+  const board     = document.getElementById('board');
+  const voiceBtn  = document.getElementById('voiceBtn');
+  const resetBtn  = document.getElementById('resetBtn');
+  const toggleBtn = document.getElementById('toggleBtn');
+  const readLang  = document.getElementById('readLang');
+
+  const surpriseBtn = document.getElementById('surpriseBtn');
+  const promptText  = document.getElementById('promptText');
+  const targetLabel = document.getElementById('targetLabel');
+  const modePill    = document.getElementById('modePill');
+
+  /* Concepts */
+  const tensEl = document.getElementById('tens');
+  const onesEl = document.getElementById('ones');
+  const decomp = document.getElementById('decomp');
+  const nline  = document.getElementById('nline');
+  const concepts = document.getElementById('concepts');
+  const leftCol  = document.getElementById('leftCol');
+
+  /* Colors */
+  const colorClasses = ['c1','c2','c3','c4','c5','c6','c7','c8','c9','c10'];
+
+  /* English names */
+  const EN_1_19=['','one','two','three','four','five','six','seven','eight','nine','ten','eleven','twelve','thirteen','fourteen','fifteen','sixteen','seventeen','eighteen','nineteen'];
+  const EN_TENS=['','','twenty','thirty','forty','fifty','sixty','seventy','eighty','ninety'];
+  function englishNumber(n){
+    if(n===100) return 'one hundred';
+    if(n<20) return EN_1_19[n];
+    const t=Math.floor(n/10), o=n%10;
+    return EN_TENS[t]+(o?' '+EN_1_19[o]:'');
+  }
+
+  /* Korean names */
+  const K_NUM=['','일','이','삼','사','오','육','칠','팔','구'];
+  function koreanNumber(n){
+    if(n===100) return '백';
+    if(n<10) return K_NUM[n];
+    const tens=Math.floor(n/10), ones=n%10;
+    let s=(tens===1?'십':K_NUM[tens]+'십');
+    if(ones>0) s+=K_NUM[ones];
+    return s;
+  }
+
+  /* Speech */
+  let voiceOn=true;
+  let voiceEN=null, voiceKR=null;
+  function pickVoice(langPattern, prefers=[]){
+    const list=window.speechSynthesis?window.speechSynthesis.getVoices():[];
+    if(!list||!list.length) return null;
+    for(const name of prefers){
+      const v=list.find(v=>v.name.includes(name)&&new RegExp(langPattern,'i').test(v.lang));
+      if(v) return v;
+    }
+    return list.find(v=>new RegExp(langPattern,'i').test(v.lang))||null;
+  }
+  function refreshVoices(){
+    voiceEN = pickVoice('^en(-|_)US',['Samantha','Allison','Joanna','Jenny','Google US English']) || pickVoice('^en',[]);
+    voiceKR = pickVoice('^ko(-|_)KR',['Yuna','Google 한국의']) || pickVoice('^ko',[]);
+  }
+  function ensureVoicesReady(){
+    refreshVoices();
+    if((!voiceEN||!voiceKR) && window.speechSynthesis){
+      window.speechSynthesis.addEventListener('voiceschanged',()=>refreshVoices(),{once:true});
+    }
+  }
+  ensureVoicesReady();
+
+  function speak(text, langTag){
+    if(!voiceOn||!window.speechSynthesis||!text) return;
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang=langTag;
+    if(langTag.startsWith('en')&&voiceEN) u.voice=voiceEN;
+    if(langTag.startsWith('ko')&&voiceKR) u.voice=voiceKR;
+    u.rate=1.0; u.pitch=1.0;
+    try{window.speechSynthesis.cancel();}catch(e){}
+    window.speechSynthesis.speak(u);
+  }
+  function speakBoth(koText,enText){
+    if(!voiceOn||!window.speechSynthesis) return;
+    const u1=new SpeechSynthesisUtterance(koText); u1.lang='ko-KR'; if(voiceKR) u1.voice=voiceKR;
+    const u2=new SpeechSynthesisUtterance(enText); u2.lang='en-US'; if(voiceEN) u2.voice=voiceEN;
+    try{window.speechSynthesis.cancel();}catch(e){}
+    window.speechSynthesis.speak(u1);
+    u1.addEventListener('end',()=>window.speechSynthesis.speak(u2),{once:true});
+  }
+
+  /* Surprise state */
+  let surpriseActive=false;
+  let targetNum=null;
+  function clearBlink(){ if(targetNum){ const el=document.querySelector(`[data-n="${targetNum}"]`); if(el) el.classList.remove('blink'); } }
+  function setBlink(n){ clearBlink(); const el=document.querySelector(`[data-n="${n}"]`); if(el) el.classList.add('blink'); }
+  function startSurprise(){
+    surpriseActive=true;
+    modePill.textContent='Mode: Surprise';
+    targetNum = Math.floor(Math.random()*100)+1;
+    targetLabel.textContent = String(targetNum);
+    promptText.textContent = `Find number ${targetNum}!`;
+    setBlink(targetNum);
+    updateConcepts(targetNum);
+  }
+  function stopSurprise(){
+    surpriseActive=false;
+    modePill.textContent='Mode: Normal';
+    targetLabel.textContent='—';
+    promptText.textContent='Tap any number!';
+    clearBlink();
+    targetNum=null;
+  }
+
+  /* Sparkles + jingle */
+  function sparkles(x,y,count=14){
+    for(let i=0;i<count;i++){
+      const s=document.createElement('div');
+      s.className='sparkle';
+      const ang=Math.random()*Math.PI*2, dist=40+Math.random()*40;
+      s.style.left=`${x}px`; s.style.top=`${y}px`;
+      s.style.setProperty('--dx', `${Math.cos(ang)*dist}px`);
+      s.style.setProperty('--dy', `${Math.sin(ang)*dist}px`);
+      document.body.appendChild(s);
+      setTimeout(()=>s.remove(),700);
+    }
+  }
+  let audioCtx=null;
+  function ensureAudio(){
+    if(!audioCtx){
+      const AC=window.AudioContext||window.webkitAudioContext;
+      audioCtx=AC?new AC():null;
+    }
+  }
+  function winJingle(){
+    ensureAudio(); if(!audioCtx) return;
+    const notes=[523.25,659.25,783.99,1046.5]; // C5-E5-G5-C6
+    const now=audioCtx.currentTime;
+    notes.forEach((f,i)=>{
+      const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+      o.type='triangle'; o.frequency.value=f;
+      const t=now+i*0.09;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.25,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.08);
+      o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+0.12);
+    });
+  }
+
+  /* ===== Concepts (builders) ===== */
+  function updateBase10(n){
+    const tens=Math.floor(n/10), ones=n%10;
+    tensEl.innerHTML=''; onesEl.innerHTML='';
+    // tens as stacks of 10 square blocks
+    for(let i=0;i<tens;i++){
+      const stack=document.createElement('div');
+      stack.className='tensStack';
+      for(let r=0;r<10;r++){
+        const sq=document.createElement('div'); sq.className='sq10';
+        stack.appendChild(sq);
+      }
+      tensEl.appendChild(stack);
+    }
+    // ones as single small squares
+    for(let i=0;i<ones;i++){
+      const u=document.createElement('div'); u.className='unit';
+      onesEl.appendChild(u);
+    }
+    decomp.textContent = `${n} = ${tens} tens + ${ones} ones`;
+  }
+  function updateNumberLine(n){
+    nline.innerHTML='';
+    for(let t=10;t<100;t+=10){
+      const tick=document.createElement('div'); tick.className='tickN';
+      tick.style.left = `${t}%`; nline.appendChild(tick);
+    }
+    const marker=document.createElement('div'); marker.className='marker';
+    marker.style.left=`${n}%`; nline.appendChild(marker);
+  }
+  function updateConcepts(n){ updateBase10(n); updateNumberLine(n); syncHeights(); }
+
+  /* Build tiles 1..100 */
+  for(let i=1;i<=100;i++){
+    const t=document.createElement('button');
+    t.className='tile'; t.dataset.n=String(i);
+    t.setAttribute('role','gridcell'); t.setAttribute('aria-label',String(i));
+
+    const nSpan=document.createElement('span'); nSpan.className='num'; nSpan.textContent=String(i); t.appendChild(nSpan);
+    const bub=document.createElement('span'); bub.className='bubble'; t.appendChild(bub);
+
+    t.addEventListener('click',()=>{
+      const idx=(i-1)%10;
+      const hasColor=colorClasses.some(c=>t.classList.contains(c));
+      t.classList.remove(...colorClasses,'tapped','show-bubble','wrong');
+      if(!hasColor){ t.classList.add(colorClasses[idx],'tapped'); }
+
+      const en=englishNumber(i), ko=koreanNumber(i);
+      const mode=readLang.value;
+      if(mode==='en') speak(en,'en-US'); else if(mode==='kr') speak(ko,'ko-KR'); else speakBoth(ko,en);
+
+      bub.textContent=en; t.classList.add('show-bubble'); setTimeout(()=>t.classList.remove('show-bubble'),700);
+
+      updateConcepts(i);
+
+      if(surpriseActive){
+        if(i===targetNum){
+          promptText.textContent='Perfect! 🎉';
+          clearBlink();
+          const rect=t.getBoundingClientRect();
+          sparkles(rect.left+rect.width/2, rect.top+rect.height/2);
+          winJingle();
+          setTimeout(startSurprise, 900);
+        }else{
+          t.classList.add('wrong'); setTimeout(()=>t.classList.remove('wrong'),250);
+          promptText.textContent=`Find number ${targetNum}!`;
+        }
+      }
+    });
+
+    board.appendChild(t);
+  }
+
+  /* Equal-height sync: Concepts == Left column height */
+  function syncHeights(){
+    // 계산: 왼쪽 컬럼(상단바 + 보드) 전체 높이
+    const h = leftCol.offsetHeight;
+    concepts.style.height = h + 'px';
+  }
+
+  // ResizeObserver로 왼쪽 컬럼 변화 감지
+  if('ResizeObserver' in window){
+    const ro = new ResizeObserver(()=> syncHeights());
+    ro.observe(leftCol);
+  }else{
+    window.addEventListener('resize', syncHeights);
+  }
+
+  /* Controls */
+  function resetBoard(){
+    document.querySelectorAll('.tile').forEach(t=>{
+      t.classList.remove(...colorClasses,'tapped','show-bubble','blink','wrong');
+    });
+    updateConcepts(0);
+  }
+  voiceBtn.addEventListener('click',()=>{
+    voiceOn=!voiceOn;
+    voiceBtn.textContent=voiceOn?'🗣️ Voice: On':'🤐 Voice: Off';
+    if(!voiceOn&&window.speechSynthesis){ try{window.speechSynthesis.cancel();}catch(e){} }
+  });
+  toggleBtn.addEventListener('click',()=>{
+    document.body.classList.toggle('hide-nums');
+    toggleBtn.textContent = document.body.classList.contains('hide-nums') ? 'Show Numbers' : 'Hide Numbers';
+  });
+  resetBtn.addEventListener('click',()=>{ resetBoard(); stopSurprise(); });
+  surpriseBtn.addEventListener('click',()=>{ resetBoard(); startSurprise(); });
+
+  document.addEventListener('click', function once(){ ensureVoicesReady(); ensureAudio(); document.removeEventListener('click', once); });
+
+  /* Initial */
+  document.body.classList.remove('hide-nums');
+  toggleBtn.textContent='Hide Numbers';
+  updateConcepts(0);
+  // 초기 높이 동기화
+  syncHeights();
+})();
+</script>
+</body>
+</html>
